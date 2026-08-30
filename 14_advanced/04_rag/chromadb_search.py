@@ -22,18 +22,26 @@ documents = [
     "Pandas is a Python library for data analysis and manipulation."
 ]
 
+ids = [str(i) for i in range(1, len(documents) + 1)]
+metadatas = [{"topic": "AI"}, {"topic": "AI"}, {"topic": "ChromaDB"}, {"topic": "AI"}, {"topic": "SQLite"}, {"topic": "ML"}, {"topic": "AI"}, {"topic": "ML"}]
+
+collection.add(ids=ids, documents=documents, metadatas=metadatas)
+print(f"Created {len(documents)} documents.\n")
+
 # Store documents
+"""
 collection.add(
     ids=[str(i) for i in range(1, len(documents) + 1)],
     documents=documents
 )
-
+"""
 # Semantic search
 query = input("Enter your search query: ")
 
 results = collection.query(
     query_texts=[query],
-    n_results=3
+    n_results=3,
+    where={"topic":"AI"}
 )
 
 print("\nTop 3 Semantic Search Results:\n")

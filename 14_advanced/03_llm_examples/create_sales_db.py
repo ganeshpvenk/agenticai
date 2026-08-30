@@ -1,6 +1,6 @@
 import sqlite3
 
-conn = sqlite3.connect(r"C:\code\agenticai\14_advanced\03_llm_examples\sales.db")
+conn = sqlite3.connect(r"C:\agenticai\14_advanced\03_llm_examples\sales.db")
 cursor = conn.cursor()
 
 # Drop the table if it already exists

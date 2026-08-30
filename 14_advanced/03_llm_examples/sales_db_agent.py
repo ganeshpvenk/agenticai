@@ -8,7 +8,7 @@ load_dotenv(override=True)
 def run_sql(query: str) -> str:
     """Execute a read-only SQL query on the sales database."""
     
-    conn = sqlite3.connect(r"c:\code\agenticai\14_advanced\03_llm_examples\sales.db")
+    conn = sqlite3.connect(r"c:\agenticai\14_advanced\03_llm_examples\sales.db")
     cursor = conn.cursor()
 
     cursor.execute(query)
@@ -30,7 +30,8 @@ agent = Agent(
 
 result = Runner.run_sync(
     agent,
-    "Which five products generated the highest revenue this year?"
+    #"Which five products generated the highest revenue this year?"
+    "Which product is least sold in terms of quantity?"
 )
 
 print(result.final_output)

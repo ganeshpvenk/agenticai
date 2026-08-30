@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import PromptTemplate
-from langchain.agents import create_react_agent, AgentExecutor
+from langchain_classic.agents import create_react_agent, AgentExecutor
 from langchain_tavily import TavilySearch
 from langchain_experimental.tools import PythonREPLTool
 

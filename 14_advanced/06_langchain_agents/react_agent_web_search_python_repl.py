@@ -7,7 +7,7 @@ import sys
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
-from langchain.agents import create_react_agent, AgentExecutor
+from langchain_classic.agents import create_react_agent, AgentExecutor
 from langchain_tavily import TavilySearch
 from langchain_experimental.tools import PythonREPLTool
 
@@ -54,7 +54,7 @@ Thought: you should always think about what to do
 Action: the action to take, should be one of [{tool_names}]
 Action Input: the input to the action
 Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
+... (this Thought->Action->Action Input->Observation can repeat N times)
 Thought: I now know the final answer
 Final Answer: the final answer to the original input question
 

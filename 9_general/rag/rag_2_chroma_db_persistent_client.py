@@ -3,7 +3,7 @@
 # Query the collection using semantic search
 import chromadb
 
-client = chromadb.PersistentClient(path=r"c:/code/agenticai/9_general/rag/chromadb")
+client = chromadb.PersistentClient(path=r"c:/agenticai/9_general/rag/chromadb")
 
 collection = client.get_or_create_collection(name="my_collection")
 

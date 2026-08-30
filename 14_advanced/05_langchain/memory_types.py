@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain.memory import (
+from langchain_classic.memory import (
     ConversationBufferMemory,
     ConversationSummaryMemory,
     VectorStoreRetrieverMemory,
@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore", category=LangChainPendingDeprecationWarning)
 
 load_dotenv(override=True)
 
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash")
 
 # -----------------------------
 # 1. ConversationBufferMemory

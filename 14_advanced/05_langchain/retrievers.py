@@ -11,8 +11,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_openai import ChatOpenAI
-from langchain.retrievers import MultiQueryRetriever, ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import LLMChainExtractor
+from langchain_classic.retrievers import MultiQueryRetriever, ContextualCompressionRetriever
+from langchain_classic.retrievers.document_compressors import LLMChainExtractor
 
 load_dotenv(override=True)
 
