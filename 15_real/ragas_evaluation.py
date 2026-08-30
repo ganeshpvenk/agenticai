@@ -4,7 +4,8 @@ import os
 import sys
 import csv
 import random
-from openai import AsyncOpenAI
+import chromadb
+from openai import OpenAI, AsyncOpenAI
 from ragas.llms import llm_factory
 from ragas.embeddings import HuggingFaceEmbeddings as RagasHuggingFaceEmbeddings
 from ragas.metrics.collections import Faithfulness, AnswerRelevancy, ContextRecall, ContextPrecisionWithoutReference
@@ -13,14 +14,11 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 sys.stdout.reconfigure(encoding="utf-8")
 
-sys.path.insert(0, os.path.dirname(__file__))
-from support_ticketing_agent_hitl import retrieve, generate, openai_client  # evaluate the REAL RAG pipeline
-
 # =====================================================================
-# RAGAS evaluation of the retrieve()/generate() pipeline that already
-# powers support_ticketing_agent_hitl.py, tested against REAL ground
-# truth sampled straight from the FAQ database it retrieves from
-# (customer_support_qa_500.csv) - not hand-invented test questions.
+# RAGAS evaluation of a small retrieve()/generate() RAG pipeline built
+# directly on top of the FAQ database (customer_support_qa_500.csv) -
+# not on top of an already-built agent, and not against hand-invented
+# test questions.
 #
 # Each test case: take one real (question, answer) pair per category
 # from the CSV, use the real answer as the reference, but naturally
@@ -42,11 +40,15 @@ from support_ticketing_agent_hitl import retrieve, generate, openai_client  # ev
 #                               actually useful for the answer given?
 # =====================================================================
 
+CSV_PATH = os.path.join(os.path.dirname(__file__), "customer_support_qa_500.csv")
+MODEL = "gpt-4o-mini"
+TOP_K = 3
+
+openai_client = OpenAI()
+
 # ragas's score() calls the LLM's async methods internally, even for "sync" usage - it
-# needs an AsyncOpenAI client, not the sync one used by retrieve()/generate() above.
-ragas_llm = llm_factory(model="gpt-4o-mini", provider="openai", client=AsyncOpenAI())
-# Local sentence-transformers model - no API key, no network call per embedding, same
-# model faiss_search.py already uses elsewhere in this repo.
+# needs an AsyncOpenAI client.
+ragas_llm = llm_factory(model=MODEL, provider="openai", client=AsyncOpenAI())
 ragas_embeddings = RagasHuggingFaceEmbeddings(model="sentence-transformers/all-MiniLM-L6-v2")
 
 faithfulness = Faithfulness(llm=ragas_llm)
@@ -54,14 +56,47 @@ answer_relevancy = AnswerRelevancy(llm=ragas_llm, embeddings=ragas_embeddings)
 context_recall = ContextRecall(llm=ragas_llm)
 context_precision = ContextPrecisionWithoutReference(llm=ragas_llm)
 
-CSV_PATH = os.path.join(os.path.dirname(__file__), "customer_support_qa_500.csv")
+
+# ---- Minimal RAG pipeline, built directly on the FAQ database ----
+
+with open(CSV_PATH, newline="", encoding="utf-8") as f:
+    FAQ_ROWS = list(csv.DictReader(f))
+
+FAQ_INDEX = chromadb.Client().create_collection("support_faq", metadata={"hnsw:space": "cosine"})
+FAQ_INDEX.add(
+    ids=[row["id"] for row in FAQ_ROWS],
+    documents=[row["question"] for row in FAQ_ROWS],
+    metadatas=[{"answer": row["answer"]} for row in FAQ_ROWS],
+)
+
+
+def retrieve(question: str) -> list[dict]:
+    result = FAQ_INDEX.query(query_texts=[question], n_results=TOP_K)
+    return [
+        {"question": q, "answer": meta["answer"]}
+        for q, meta in zip(result["documents"][0], result["metadatas"][0])
+    ]
+
+
+def generate(question: str, faqs: list[dict]) -> str:
+    context = "\n\n".join(f"Q: {faq['question']}\nA: {faq['answer']}" for faq in faqs)
+    response = openai_client.responses.create(
+        model=MODEL,
+        instructions=(
+            "You are a customer support assistant. Answer using ONLY the FAQ context below - "
+            "do not invent policies. Keep it short. If the context doesn't answer the "
+            "question, say a support agent will need to follow up."
+        ),
+        input=f"FAQ context:\n{context}\n\nCustomer message: {question}",
+    )
+    return response.output_text
 
 
 def paraphrase(question: str) -> str:
     """Rephrase a real FAQ question the way an actual user would type it - same
     meaning, different wording - so retrieval is tested on realistic input."""
     return openai_client.responses.create(
-        model="gpt-4o-mini",
+        model=MODEL,
         instructions="Rephrase this customer support question naturally and casually, the "
                      "way a real user typing quickly would. Keep the same meaning. Return "
                      "ONLY the rephrased question, nothing else.",
@@ -69,34 +104,28 @@ def paraphrase(question: str) -> str:
     ).output_text.strip()
 
 
-def build_test_cases_from_real_faqs(seed: int = 42) -> list[dict]:
-    """Sample one real (question, answer) pair per category from the actual FAQ
-    database - the SAME database the pipeline retrieves from - as the eval set."""
-    with open(CSV_PATH, newline="", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
-
+def build_test_cases(seed: int = 42) -> list[dict]:
+    """Sample one real (question, answer) pair per category from the FAQ database
+    as the eval set, then paraphrase each question before it's asked."""
     by_category: dict[str, list[dict]] = {}
-    for row in rows:
+    for row in FAQ_ROWS:
         by_category.setdefault(row["category"], []).append(row)
 
     random.seed(seed)
-    cases = []
-    for category, entries in sorted(by_category.items()):
-        entry = random.choice(entries)
-        cases.append({
+    return [
+        {
             "category": category,
             "original_question": entry["question"],
             "question": paraphrase(entry["question"]),
             "reference": entry["answer"],
-        })
-    return cases
-
-
-TEST_CASES = build_test_cases_from_real_faqs()
+        }
+        for category, entries in sorted(by_category.items())
+        for entry in [random.choice(entries)]
+    ]
 
 
 def evaluate_case(question: str, reference: str) -> dict:
-    faqs, _ = retrieve(question)
+    faqs = retrieve(question)
     retrieved_contexts = [f"Q: {faq['question']} A: {faq['answer']}" for faq in faqs]
     response = generate(question, faqs)
 
@@ -120,7 +149,7 @@ def evaluate_case(question: str, reference: str) -> dict:
 if __name__ == "__main__":
     results = []
 
-    for case in TEST_CASES:
+    for case in build_test_cases():
         print("=" * 70)
         print(f"Category: {case['category']}")
         print(f"Original FAQ question: {case['original_question']}")

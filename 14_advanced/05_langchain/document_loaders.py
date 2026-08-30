@@ -9,8 +9,7 @@ import os
 # well-behaved scrapers vs. bots.
 os.environ.setdefault("USER_AGENT", "agenticai-course-demo/1.0")
 
-from typing import Iterator, List
-from langchain_core.document_loaders import BaseLoader
+from typing import List
 from langchain_core.documents import Document
 from langchain_community.document_loaders import (
     PyPDFLoader,
@@ -65,33 +64,3 @@ show("3. CSVLoader", csv_docs)
 notion_path = os.path.join(BASE_DIR, "sample_notion_export")
 notion_docs = NotionDirectoryLoader(notion_path).load()
 show("4. NotionDirectoryLoader", notion_docs)
-
-# -----------------------------
-# 5. Custom Loader
-# There's no built-in loader for every possible data source (an internal
-# API, a queue, a proprietary DB). Writing one is just: subclass BaseLoader
-# and implement lazy_load() to yield Document objects. Everything downstream
-# (text splitters, vector stores, retrievers) works with any loader the
-# same way, because they only ever depend on the Document interface.
-# -----------------------------
-class InMemoryRecordLoader(BaseLoader):
-    """Loads Documents out of an arbitrary in-memory list of dicts -
-    stands in for records you'd normally pull from an API or database."""
-
-    def __init__(self, records: List[dict], text_field: str):
-        self.records = records
-        self.text_field = text_field
-
-    def lazy_load(self) -> Iterator[Document]:
-        for record in self.records:
-            metadata = {k: v for k, v in record.items() if k != self.text_field}
-            yield Document(page_content=record[self.text_field], metadata=metadata)
-
-support_tickets = [
-    {"id": 101, "priority": "high", "text": "Login page throws a 500 error on submit."},
-    {"id": 102, "priority": "low", "text": "Dark mode toggle doesn't persist after refresh."},
-    {"id": 103, "priority": "medium", "text": "Export to CSV is missing the last column."},
-]
-
-custom_docs = InMemoryRecordLoader(support_tickets, text_field="text").load()
-show("5. Custom InMemoryRecordLoader", custom_docs)

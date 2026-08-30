@@ -1,3 +1,4 @@
+# pip install langchain-openai langsmith
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
@@ -13,7 +14,7 @@ load_dotenv(override=True)
 # .env's LANGSMITH_PROJECT is shared with other exercises in this repo
 # (e.g. a CrewAI market-research demo) - use a dedicated project here so
 # this script's traces don't get mixed in with unrelated ones.
-os.environ["LANGSMITH_PROJECT"] = "agenticai-05-langchain-demo"
+#os.environ["LANGSMITH_PROJECT"] = "agenticai-05-langchain-demo"
 
 # LLM output can contain characters outside Windows' default console
 # codepage (cp1252) - reconfigure stdout to UTF-8 so printing doesn't crash.

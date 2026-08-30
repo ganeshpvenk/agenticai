@@ -51,3 +51,4 @@ desktop.ini
 
 # Office lock files
 ~$*
+.gradio/ 

@@ -28,7 +28,7 @@ DB_PATH = os.path.join(BASE_DIR, "chat_history.db")
 
 prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a friendly, helpful assistant. Keep answers concise."),
-    MessagesPlaceholder(variable_name="history"),
+    MessagesPlaceholder(variable_name="history"), # Previous chat history
     ("human", "{input}"),
 ])
 
@@ -50,8 +50,11 @@ chatbot = RunnableWithMessageHistory(
 
 if __name__ == "__main__":
     session_id = input("Enter your name/session id: ").strip() or "default_user"
+    
+    # This tells LangChain to load the history from disk for this session_id
     config = {"configurable": {"session_id": session_id}}
 
+    # Load past messages for this user if they exist
     past_messages = get_session_history(session_id).messages
     if past_messages:
         print(f"\nWelcome back, {session_id}! Restored {len(past_messages)} messages from a previous session.")
