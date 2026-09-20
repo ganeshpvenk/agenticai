@@ -7,6 +7,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 import os
 import shutil
 import sys
+import pandas as pd
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from langchain_chroma import Chroma
@@ -35,27 +36,27 @@ vectorstore = Chroma(
     persist_directory=PERSIST_DIR,
 )
 
-# 8 raw episodes accumulated from real (simulated) support interactions,
-# across 3 recurring issue patterns - the messy, redundant state a live
+# 8 raw episodes, each a REAL row pulled from 15_real/customer_support_qa_500.csv
+# (the same dataset episodic_memory_store.py seeds from) rather than hand-written
+# text. They were picked because they cluster into 3 recurring issue patterns
+# that genuinely exist in that dataset - the messy, redundant state a live
 # episodic store actually ends up in after enough traffic.
-RAW_EPISODES = [
-    "Customer asked: My debit card keeps getting declined at ATMs while I'm on vacation in Italy. | "
-    "Resolution: Explained the $500 daily ATM limit and enabled travel notification for Italy.",
-    "Customer asked: Card declined twice at an ATM while traveling in Japan. | "
-    "Resolution: Enabled travel notification for Japan and confirmed the $500 daily ATM limit.",
-    "Customer asked: Worried my card will be declined at ATMs during my upcoming trip to France. | "
-    "Resolution: Proactively enabled travel notification for France ahead of the trip.",
-    "Customer asked: I was charged twice for the same purchase at a restaurant. | "
-    "Resolution: Identified a duplicate authorization hold, explained it clears in 3-5 business days.",
-    "Customer asked: Two charges appeared for one hotel booking. | "
-    "Resolution: Confirmed it was a pending pre-authorization hold plus the final charge, not a double charge.",
-    "Customer asked: My statement shows the same coffee shop charge twice in one day. | "
-    "Resolution: Explained the first was a pending hold that dropped off once the real charge posted.",
-    "Customer asked: My card was declined at an online betting site. | "
-    "Resolution: Explained the gambling merchant category is blocked by default; enabled it in Merchant Controls.",
-    "Customer asked: Card declined buying cryptocurrency on an exchange. | "
-    "Resolution: Explained crypto purchases are blocked by default under Merchant Controls; enabled that category.",
+CSV_PATH = os.path.join(BASE_DIR, "..", "..", "15_real", "customer_support_qa_500.csv")
+answer_by_question = pd.read_csv(CSV_PATH).set_index("question")["answer"]
+RAW_QUESTIONS = [
+    # Pattern: two-factor authentication trouble (spans the Account and Technical categories)
+    "My two-factor authenticator app isn't generating valid codes, what should I do?",
+    "I lost my two-factor authentication device, how do I recover access?",
+    "How do I fix two-factor codes not being accepted in the app?",
+    # Pattern: payment/card declined
+    "Why was my payment declined?",
+    "Why is my card being declined even though it has funds?",
+    # Pattern: subscription cancellation
+    "How do I cancel my subscription?",
+    "Can I pause my subscription instead of canceling it?",
+    "How do I cancel a subscription I signed up for through the app store instead of the website?",
 ]
+RAW_EPISODES = [f"Customer asked: {q} | Resolution: {answer_by_question[q]}" for q in RAW_QUESTIONS]
 vectorstore.add_texts(RAW_EPISODES)
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
@@ -80,7 +81,7 @@ class ConsolidationPlan(BaseModel):
 
 def consolidate() -> ConsolidationPlan:
     numbered = "\n".join(f"{i}. {doc}" for i, doc in enumerate(RAW_EPISODES))
-    prompt = f"""Here are {len(RAW_EPISODES)} raw episodic memories from a bank support agent:
+    prompt = f"""Here are {len(RAW_EPISODES)} raw episodic memories from a customer support agent:
 
 {numbered}
 

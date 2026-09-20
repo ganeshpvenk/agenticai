@@ -37,7 +37,7 @@ def search_gutenberg_books(query: str) -> str:
     """Search Project Gutenberg's free ebook catalog via the Gutendex API
     (no key required). Returns up to 5 matches as 'Title by Author(s)
     [id=..., downloads=...]', one per line, ordered by popularity."""
-    resp = requests.get(GUTENDEX_URL, params={"search": query}, timeout=10)
+    resp = requests.get(GUTENDEX_URL, params={"search": query}, timeout=50)
     resp.raise_for_status()
     results = resp.json().get("results", [])
     if not results:

@@ -46,7 +46,7 @@ class SentimentClassification(BaseModel):
 
 sentiment_prompt = ChatPromptTemplate.from_template(
     "Classify the overall investment sentiment of this news about {stock_name} "
-    "as positive or negative:\n\n{news_summary}"
+    "as positive or negative:\n\n{news_summary}."
 )
 sentiment_chain = sentiment_prompt | llm.with_structured_output(SentimentClassification)
 

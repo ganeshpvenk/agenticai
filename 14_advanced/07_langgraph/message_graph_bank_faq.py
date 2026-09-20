@@ -22,7 +22,7 @@ load_dotenv(override=True)
 # codepage (cp1252) - reconfigure stdout to UTF-8 so printing doesn't crash.
 sys.stdout.reconfigure(encoding="utf-8")
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
 
 # =====================================================================
 # "Message graph" pattern for a multi-turn banking FAQ chatbot.

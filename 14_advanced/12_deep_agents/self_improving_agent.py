@@ -8,6 +8,7 @@ import os
 import shutil
 import sys
 from typing import TypedDict
+import pandas as pd
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from langchain_chroma import Chroma
@@ -25,6 +26,10 @@ sys.stdout.reconfigure(encoding="utf-8")
 # loops - each query runs the graph once, and improvement shows up
 # later, on a completely different query that benefits from a lesson an
 # earlier query's low score left behind in a real persistent store.
+#
+# The grader's ground truth is pulled from REAL rows of 15_real/
+# customer_support_qa_500.csv (the same dataset episodic_memory_store.py
+# and memory_consolidation.py use) instead of a hand-written policy sheet.
 # =====================================================================
 
 THRESHOLD = 7
@@ -32,6 +37,9 @@ THRESHOLD = 7
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PERSIST_DIR = os.path.join(BASE_DIR, "self_improving_lessons_db")
 shutil.rmtree(PERSIST_DIR, ignore_errors=True)
+
+CSV_PATH = os.path.join(BASE_DIR, "..", "..", "15_real", "customer_support_qa_500.csv")
+answer_by_question = pd.read_csv(CSV_PATH).set_index("question")["answer"]
 
 vectorstore = Chroma(
     collection_name="lessons",
@@ -63,7 +71,7 @@ def recall_lessons(state: SelfImprovingState) -> SelfImprovingState:
 
 def respond(state: SelfImprovingState) -> SelfImprovingState:
     context = "\n".join(f"- {lesson}" for lesson in state["retrieved_lessons"])
-    prompt = f"""You are a bank customer support agent. Answer the customer's question briefly and directly.
+    prompt = f"""You are a customer support agent. Answer the customer's question briefly and directly.
 
 Lessons learned from past mistakes - apply these if relevant:
 {context or "(none yet)"}
@@ -79,22 +87,28 @@ class Critique(BaseModel):
                         "(exact figure, phone number, policy detail) rather than generic hedging advice?")
     corrected_fact: str = Field(description="If the answer missed or hedged on a concrete fact, state the "
                                  "correct fact as a short, standalone, general lesson for future answers "
-                                 "(e.g. 'The daily ATM withdrawal limit is $500.'). Empty string if the "
-                                 "answer was already accurate and specific.")
+                                 "(e.g. 'Refunds typically take 5-10 business days to post.'). Empty string "
+                                 "if the answer was already accurate and specific.")
 
 
-REAL_BANK_POLICY = """- Daily ATM withdrawal limit: $500
-- Lost/stolen card hotline: 1-800-555-0199, available 24/7
-- Duplicate-looking charges are usually a pending authorization hold that clears in 3-5 business days
-- Gambling and cryptocurrency purchases are blocked by default under Merchant Controls"""
+# Ground truth for the grader: 2 real facts the demo queries actually probe,
+# plus 2 real facts thrown in as distractors the grader knows but nothing
+# below ever asks about - a realistic grader has a broader reference than
+# what any single conversation happens to touch.
+REAL_POLICY_REFERENCE = "\n".join(f"- {answer_by_question[q]}" for q in [
+    "How long does a refund take to appear on my statement?",
+    "Why is my account locked after failed login attempts?",
+    "Why can't I upload photos or files?",
+    "How long does my login session last before timing out?",
+])
 
 
 def evaluate(state: SelfImprovingState) -> SelfImprovingState:
-    prompt = f"""Grade this bank support answer against the ACTUAL policy reference below. Be strict -
+    prompt = f"""Grade this support answer against the ACTUAL policy reference below. Be strict -
 score 7+ only if the answer states the specific correct fact, not just plausible-sounding generic advice.
 
 Actual policy reference (the grader's source of truth, not shown to the agent):
-{REAL_BANK_POLICY}
+{REAL_POLICY_REFERENCE}
 
 Customer question: {state['query']}
 Answer to grade: {state['response']}"""
@@ -133,13 +147,13 @@ def run(query: str) -> None:
 
 if __name__ == "__main__":
     print("=" * 70)
-    print("PAIR 1: ATM withdrawal limit")
+    print("PAIR 1: refund timing")
     print("=" * 70)
-    run("What's the daily limit if I want to withdraw cash from an ATM?")
-    run("I want to take out $800 in cash before my trip - can I just do that at one ATM?")
+    run("How long will it take for my refund to show up?")
+    run("I requested a refund 3 days ago and it's not showing yet - should I be worried?")
 
     print("\n" + "=" * 70)
-    print("PAIR 2: lost/stolen card hotline")
+    print("PAIR 2: account lockout")
     print("=" * 70)
-    run("My wallet with my debit card just got stolen, what do I do?")
-    run("I'm traveling and can't find my card, is there a number I can call anytime, even at night?")
+    run("Why did my account suddenly get locked when I was trying to log in?")
+    run("How long do I need to wait before I can try logging into my account again?")

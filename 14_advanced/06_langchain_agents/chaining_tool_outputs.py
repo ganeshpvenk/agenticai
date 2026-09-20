@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
 
 load_dotenv(override=True)
 
@@ -36,7 +36,7 @@ def geocode_city(city: str) -> str:
     resp = requests.get(
         "https://geocoding-api.open-meteo.com/v1/search",
         params={"name": city, "count": 1, "language": "en", "format": "json"},
-        timeout=10,
+        timeout=50,
     ).json()
     results = resp.get("results", [])
     if not results:
@@ -60,7 +60,7 @@ def get_current_weather(lat_lon: str) -> str:
             "current": "temperature_2m,wind_speed_10m",
             "timezone": "auto",
         },
-        timeout=10,
+        timeout=50,
     ).json()
     current = resp.get("current", {})
     return f"temperature={current.get('temperature_2m')}C, wind_speed={current.get('wind_speed_10m')}km/h"
@@ -101,7 +101,7 @@ def find_nearby_places(lat_lon: str) -> str:
     'Name (attraction)' / 'Name (restaurant)', one per line."""
     lat_str, lon_str = lat_lon.split(",")[:2]
     query = f"""
-    [out:json][timeout:15];
+    [out:json][timeout:50];
     (
       node["tourism"="attraction"](around:2000,{lat_str.strip()},{lon_str.strip()});
       node["amenity"="restaurant"](around:2000,{lat_str.strip()},{lon_str.strip()});
@@ -112,7 +112,7 @@ def find_nearby_places(lat_lon: str) -> str:
         resp = requests.post(
             "https://overpass-api.de/api/interpreter",
             data={"data": query},
-            timeout=20,
+            timeout=50,
             # Overpass's public instance blocks/deprioritizes requests
             # carrying requests' default generic User-Agent - identify
             # this client explicitly, per Overpass's usage policy.

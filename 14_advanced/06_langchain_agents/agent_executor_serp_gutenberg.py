@@ -11,7 +11,7 @@ from serpapi import GoogleSearch
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
 
 load_dotenv(override=True)
 
@@ -50,7 +50,7 @@ def search_gutenberg_books(query: str) -> str:
     'Title by Author(s) [id=..., downloads=...]', one per line, ordered by
     popularity."""
     try:
-        resp = requests.get(GUTENDEX_URL, params={"search": query}, timeout=10)
+        resp = requests.get(GUTENDEX_URL, params={"search": query}, timeout=50)
         resp.raise_for_status()
     except requests.exceptions.RequestException as e:
         return f"Gutenberg search failed ({e}). Try again or answer without it."
